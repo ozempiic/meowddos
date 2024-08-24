@@ -1,2 +1,2 @@
 # meowddos
-l7 ddos
+just compile, http-udp flood
